@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package
+        run: pip install "./repo[dev]"
+
+      - name: Lint
+        run: python -m ruff check repo/brahim_energy/ --line-length=100
+
+      - name: Type check
+        run: python -m mypy repo/brahim_energy/ --ignore-missing-imports
+
+      - name: Tests
+        working-directory: repo/tests
+        run: python -m pytest -v
+
+      - name: Import smoke test
+        run: |
+          cd /tmp
+          python -c "
+          from brahim_energy import PHI, D, x_from_D, __version__
+          print(f'brahim-energy v{__version__}')
+          print(f'PHI = {PHI}')
+          print(f'D(0.5) = {D(0.5):.6f}')
+
+          from brahim_energy.grid.eu import BrahimGridStressCalculator
+          calc = BrahimGridStressCalculator('DE')
+          r = calc.simulate_24h(40000)
+          print(f'Germany 24h sim: {len(r)} hours')
+
+          from brahim_energy.battery import BrahimBatteryCalculator
+          from brahim_energy.battery.optimizer import ApplicationScale, DurationClass
+          bc = BrahimBatteryCalculator()
+          best = bc.find_optimal_battery(ApplicationScale.GRID, DurationClass.MEDIUM, budget_per_kwh=200)
+          print(f'Best battery: {best[0].chemistry.code}')
+
+          from brahim_energy.carbon import PhotosynthesisCascadeAnalyzer
+          pca = PhotosynthesisCascadeAnalyzer()
+          res = pca.analyze_cascade()
+          print(f'Cascade efficiency: {res.data[\"overall_efficiency\"]:.4f}')
+          "

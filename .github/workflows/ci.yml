@@ -26,10 +26,12 @@ jobs:
         run: pip install "./repo[dev]"
 
       - name: Lint
-        run: python -m ruff check repo/brahim_energy/ --line-length=100
+        working-directory: repo
+        run: python -m ruff check brahim_energy/ --line-length=100
 
       - name: Type check
-        run: python -m mypy repo/brahim_energy/ --ignore-missing-imports
+        working-directory: repo
+        run: python -m mypy brahim_energy/ --ignore-missing-imports
 
       - name: Tests
         working-directory: repo/tests
